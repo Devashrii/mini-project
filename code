@@ -1,0 +1,215 @@
+Building a frontend for the described functionality can be achieved using **Flask** for the backend and **HTML/CSS/JavaScript** for the frontend. Below is the complete code for creating a simple yet informative web application.
+
+---
+
+### Steps to Create the Application:
+
+1. **Backend with Flask**:
+   - Train the model.
+   - Serve predictions based on user inputs.
+   
+2. **Frontend**:
+   - Collect inputs (e.g., dietary pattern, socioeconomic status, etc.).
+   - Display the predicted age for menarche and additional information.
+
+3. **Integration**:
+   - Connect the frontend and backend.
+
+---
+
+### Backend Code: `app.py`
+
+```python
+from flask import Flask, render_template, request, jsonify
+import pandas as pd
+import numpy as np
+import pickle
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+
+# Initialize Flask app
+app = Flask(__name__)
+
+# Load pre-trained model
+model_path = "naive_bayes_model.pkl"  # Save the Naive Bayes model here
+model = pickle.load(open(model_path, "rb"))
+
+# Load necessary encoders and scaler
+label_encoders = pickle.load(open("label_encoders.pkl", "rb"))
+scaler = pickle.load(open("scaler.pkl", "rb"))
+
+# Define route for homepage
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+# Define route for predictions
+@app.route("/predict", methods=["POST"])
+def predict():
+    # Collect input data from the form
+    dietary_pattern = request.form["dietary_pattern"]
+    socioeconomic_status = request.form["socioeconomic_status"]
+    environmental_factors = request.form["environmental_factors"]
+    region = request.form["region"]
+    industrialization_level = request.form["industrialization_level"]
+    nutrition_access = request.form["nutrition_access"]
+
+    # Encode categorical inputs
+    inputs = {
+        "Dietary_Pattern": dietary_pattern,
+        "Socioeconomic_Status": socioeconomic_status,
+        "Environmental_Factors": environmental_factors,
+        "Region": region,
+        "Industrialization_Level": industrialization_level,
+        "Nutrition_Access": nutrition_access,
+    }
+    encoded_inputs = []
+    for col, value in inputs.items():
+        encoded_inputs.append(label_encoders[col].transform([value])[0])
+
+    # Normalize inputs
+    encoded_inputs = np.array(encoded_inputs).reshape(1, -1)
+    scaled_inputs = scaler.transform(encoded_inputs)
+
+    # Predict the class (0: Late, 1: Early)
+    prediction = model.predict(scaled_inputs)[0]
+
+    # Map prediction to menarche age
+    predicted_age = "≤12 years" if prediction == 1 else ">12 years"
+
+    # Return prediction and details
+    return render_template(
+        "result.html",
+        predicted_age=predicted_age,
+        dietary_pattern=dietary_pattern,
+        socioeconomic_status=socioeconomic_status,
+        environmental_factors=environmental_factors,
+        region=region,
+        industrialization_level=industrialization_level,
+        nutrition_access=nutrition_access,
+    )
+
+if __name__ == "__main__":
+    app.run(debug=True)
+```
+
+---
+
+### Frontend: `templates/index.html`
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menarche Prediction</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center">Predict Menarche Age</h1>
+        <p class="text-center">Enter the information below to predict the age at which menstruation begins.</p>
+        <form action="/predict" method="POST">
+            <div class="form-group">
+                <label for="dietary_pattern">Dietary Pattern:</label>
+                <input type="text" class="form-control" id="dietary_pattern" name="dietary_pattern" required>
+            </div>
+            <div class="form-group">
+                <label for="socioeconomic_status">Socioeconomic Status:</label>
+                <input type="text" class="form-control" id="socioeconomic_status" name="socioeconomic_status" required>
+            </div>
+            <div class="form-group">
+                <label for="environmental_factors">Environmental Factors:</label>
+                <input type="text" class="form-control" id="environmental_factors" name="environmental_factors" required>
+            </div>
+            <div class="form-group">
+                <label for="region">Region:</label>
+                <input type="text" class="form-control" id="region" name="region" required>
+            </div>
+            <div class="form-group">
+                <label for="industrialization_level">Industrialization Level:</label>
+                <input type="text" class="form-control" id="industrialization_level" name="industrialization_level" required>
+            </div>
+            <div class="form-group">
+                <label for="nutrition_access">Nutrition Access:</label>
+                <input type="text" class="form-control" id="nutrition_access" name="nutrition_access" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Predict</button>
+        </form>
+    </div>
+</body>
+</html>
+```
+
+---
+
+### Result Page: `templates/result.html`
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prediction Result</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center">Prediction Result</h1>
+        <p class="text-center">Based on the provided details, the predicted age for first menstruation is:</p>
+        <h2 class="text-center text-primary">{{ predicted_age }}</h2>
+        <div class="mt-4">
+            <h4>Details Provided:</h4>
+            <ul>
+                <li><b>Dietary Pattern:</b> {{ dietary_pattern }}</li>
+                <li><b>Socioeconomic Status:</b> {{ socioeconomic_status }}</li>
+                <li><b>Environmental Factors:</b> {{ environmental_factors }}</li>
+                <li><b>Region:</b> {{ region }}</li>
+                <li><b>Industrialization Level:</b> {{ industrialization_level }}</li>
+                <li><b>Nutrition Access:</b> {{ nutrition_access }}</li>
+            </ul>
+        </div>
+        <a href="/" class="btn btn-secondary mt-4">Make Another Prediction</a>
+    </div>
+</body>
+</html>
+```
+
+---
+
+### Pre-Saving Encoders, Scaler, and Model
+
+Before running the application, save the encoders, scaler, and trained model using `pickle`:
+
+```python
+import pickle
+
+# Save model
+with open("naive_bayes_model.pkl", "wb") as model_file:
+    pickle.dump(model, model_file)
+
+# Save encoders and scaler
+with open("label_encoders.pkl", "wb") as le_file:
+    pickle.dump(label_encoders, le_file)
+
+with open("scaler.pkl", "wb") as scaler_file:
+    pickle.dump(scaler, scaler_file)
+```
+
+---
+
+### Running the Application
+
+1. Save the files: `app.py`, `index.html`, `result.html`.
+2. Install necessary libraries:
+   ```bash
+   pip install flask scikit-learn pandas numpy
+   ```
+3. Run the Flask app:
+   ```bash
+   python app.py
+   ```
+4. Open your browser and navigate to `http://127.0.0.1:5000`.
+
+You can now input data, and the app will predict the menarche age while displaying all related information. Let me know if you need further assistance!
