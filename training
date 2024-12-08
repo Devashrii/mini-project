@@ -1,0 +1,41 @@
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.naive_bayes import GaussianNB
+import pickle
+
+# Load the dataset
+dataset_path = '/mnt/data/Combined_Menstrual_Habits_Comparison.csv'
+data = pd.read_csv(dataset_path)
+
+# Preprocessing
+categorical_cols = ["Dietary_Pattern", "Socioeconomic_Status", "Environmental_Factors",
+                    "Region", "Industrialization_Level", "Nutrition_Access"]
+label_encoders = {}
+for col in categorical_cols:
+    le = LabelEncoder()
+    data[col] = le.fit_transform(data[col])
+    label_encoders[col] = le
+
+# Create binary target: Early (<=12 years) vs Late (>12 years)
+data['Menstrual_Class'] = (data['Menstrual_Onset_Age'] <= 12).astype(int)
+
+# Features and target
+X = data.drop(columns=["Menstrual_Onset_Age", "Generation", "Menstrual_Class"])
+y = data["Menstrual_Class"]
+
+# Normalize features
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Train-test split
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
+# Train Naive Bayes model
+model = GaussianNB()
+model.fit(X_train, y_train)
+
+# Evaluate model (Optional)
+accuracy = model.score(X_test, y_test)
+print(f"Model Accuracy: {accuracy:.2f}")
