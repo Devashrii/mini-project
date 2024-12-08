@@ -1,0 +1,115 @@
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neural_network import MLPClassifier
+from xgboost import XGBClassifier
+from sklearn.metrics import (
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    cohen_kappa_score,
+    classification_report,
+    confusion_matrix
+)
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Load the dataset
+dataset_path = '/content/Combined_Menstrual_Habits_Comparison.csv'
+data = pd.read_csv(dataset_path)
+
+# Data Preprocessing
+# Encode categorical variables
+categorical_cols = ["Dietary_Pattern", "Socioeconomic_Status", "Environmental_Factors",
+                    "Region", "Industrialization_Level", "Nutrition_Access"]
+label_encoders = {}
+for col in categorical_cols:
+    le = LabelEncoder()
+    data[col] = le.fit_transform(data[col])
+    label_encoders[col] = le
+
+# Create binary target: Early (<=12 years) vs Late (>12 years)
+data['Menstrual_Class'] = (data['Menstrual_Onset_Age'] <= 12).astype(int)
+
+# Separate features and target
+X = data.drop(columns=["Menstrual_Onset_Age", "Generation", "Menstrual_Class"])
+y = data["Menstrual_Class"]
+
+# Normalize features
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Train-test split
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
+# Models for evaluation
+models = {
+    "Logistic Regression": LogisticRegression(max_iter=500, random_state=42),
+    "Random Forest": RandomForestClassifier(n_estimators=100, random_state=42),
+    "Gradient Boosting": GradientBoostingClassifier(random_state=42),
+    "SVM": SVC(probability=True, random_state=42),
+    "KNN": KNeighborsClassifier(n_neighbors=5),
+    "Naive Bayes": GaussianNB(),
+    "XGBoost": XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42),
+    "MLP Classifier": MLPClassifier(max_iter=500, random_state=42)
+}
+
+# Results storage
+metrics = []
+
+# Training and Evaluation
+for model_name, model in models.items():
+    print(f"Training and Evaluating: {model_name}")
+    # Train the model
+    model.fit(X_train, y_train)
+    # Predictions
+    y_pred = model.predict(X_test)
+    # Metrics calculation
+    accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred)
+    recall = recall_score(y_test, y_pred)
+    f1 = f1_score(y_test, y_pred)
+    kappa = cohen_kappa_score(y_test, y_pred)
+    # Store metrics
+    metrics.append({
+        "Model": model_name,
+        "Accuracy": accuracy,
+        "Precision": precision,
+        "Recall": recall,
+        "F1 Score": f1,
+        "Cohen's Kappa": kappa
+    })
+    # Display classification report
+    print(f"\nClassification Report for {model_name}:\n")
+    print(classification_report(y_test, y_pred))
+    # Confusion Matrix
+    cm = confusion_matrix(y_test, y_pred)
+    plt.figure(figsize=(6, 4))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=["Late", "Early"], yticklabels=["Late", "Early"])
+    plt.title(f"Confusion Matrix for {model_name}")
+    plt.xlabel("Predicted")
+    plt.ylabel("Actual")
+    plt.show()
+
+# Convert metrics to a DataFrame
+metrics_df = pd.DataFrame(metrics)
+
+# Display metrics
+print("\nModel Evaluation Metrics:")
+print(metrics_df.sort_values(by="F1 Score", ascending=False))
+
+# Visualize Metrics
+plt.figure(figsize=(12, 8))
+metrics_df.set_index("Model").plot(kind="bar", figsize=(12, 6))
+plt.title("Model Comparison Based on Evaluation Metrics")
+plt.ylabel("Score")
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
